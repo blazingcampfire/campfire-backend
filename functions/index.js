@@ -4,8 +4,11 @@ const {log, logger} = require("firebase-functions/logger");
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 
-admin.initializeApp();
+admin.initializeApp({
+    credential: admin.credential.applicationDefault(),
+  });
 
 const firestore = admin.firestore();
 admin.firestore().settings( { timestampsInSnapshots: true })
@@ -41,4 +44,30 @@ exports.deleteOldPosts = functions.pubsub.schedule('every 4 hours').timeZone('UT
 
     console.log('Deleted old posts.');
     return null;
+});
+
+const postsPath = "users/{school}/posts/{postID}";
+
+exports.sendNotification = onDocumentCreated(postsPath, async (event) => {
+  functions.logger.log("New post was added");
+
+  const snapshot = event.data;
+  if (!snapshot) {
+      console.log("No data associated with the event");
+      return;
+  }
+  const data = snapshot.data();
+  const name = data.name;
+  const token = "eHZXlCDbSkFSo9NtzSmGlY:APA91bGFIm-u2YX7SHHiaUVpXVZhokP0swKC_ATVmbdq8TTRvimxO7nuejGabOOXiE03pD1T7jh71N6VnvmNOu57VW1pl7sI7ZBOTHAVJSuBzKoBafK0Vgoy553gFxKQ_94mRO-aGNsD"
+
+  const response = await admin.messaging().send({
+    token: token,
+    notification: {
+      title: "New Post!",
+      body: `${name} just posted!`
+    },
+  })
+
+  functions.logger.log("successfully sent notification");
+
 });
