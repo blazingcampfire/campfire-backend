@@ -4,7 +4,7 @@ const {log, logger} = require("firebase-functions/logger");
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 
 admin.initializeApp({
     credential: admin.credential.applicationDefault(),
@@ -46,28 +46,143 @@ exports.deleteOldPosts = functions.pubsub.schedule('every 4 hours').timeZone('UT
     return null;
 });
 
+const relationshipsPath = "relationships/{school}/relationships/{relationshipID}";
+
+exports.friendRequestNotifications = onDocumentUpdated(relationshipsPath, async (event) => {
+  functions.logger.log("new relationship was added");
+
+  const beforeSnapshot = event.data.before.data();
+  const afterSnapshot = event.data.after.data();
+  if (!beforeSnapshot || !afterSnapshot) {
+      console.log("No data associated with the event");
+      return;
+  }
+
+  if(afterSnapshot.ownRequests.length > beforeSnapshot.ownRequests.length) {
+    const uid = event.params.relationshipID 
+    const school = event.params.school
+    const tokenSnap = await admin.firestore().collection(`notifications/${school}/fcmTokens`).doc(uid).get()
+    const token = tokenSnap.data().fcmToken
+    const requests = afterSnapshot.ownRequests
+    const length = requests.length
+    const name = requests[requests.length - 1].name
+    const response = await admin.messaging().send({
+      token: token,
+      notification: {
+        title: "new friend request!",
+        body: `${name} just sent you a friend request!`
+      },
+    })
+    functions.logger.log("successfully sent notification");
+  }
+
+  if(afterSnapshot.friends.length > beforeSnapshot.friends.length) {
+    const uid = event.params.relationshipID 
+    const school = event.params.school
+    const tokenSnap = await admin.firestore().collection(`notifications/${school}/fcmTokens`).doc(uid).get()
+    const token = tokenSnap.data().fcmToken
+    const friends = afterSnapshot.friends
+    const name = friends[friends.length - 1].name
+    const response = await admin.messaging().send({
+      token: token,
+      notification: {
+        title: "new friend!",
+        body: `you and ${name} are now friends!`
+      },
+    })
+    functions.logger.log("successfully sent notification");
+  }
+  
+});
+
 const postsPath = "users/{school}/posts/{postID}";
 
-exports.sendNotification = onDocumentCreated(postsPath, async (event) => {
-  functions.logger.log("New post was added");
+exports.postNotifications = onDocumentUpdated(postsPath, async (event) => {
+  functions.logger.log("post document was updated");
+
+  const beforeSnapshot = event.data.before.data();
+  const afterSnapshot = event.data.after.data();
+  if (!beforeSnapshot || !afterSnapshot) {
+      console.log("No data associated with the event");
+      return;
+  }
+  const posterName = afterSnapshot.name
+  const uid = afterSnapshot.posterId
+  const school = event.params.school
+  if(afterSnapshot.numLikes > beforeSnapshot.numLikes) {
+    functions.logger.log(afterSnapshot.numLikes)
+    functions.logger.log(beforeSnapshot.numLikes)  
+    const usersWhoLiked = afterSnapshot.usersWhoLiked
+    // functions.logger.log(usersWhoLiked) 
+    // const lastLikeUser = usersWhoLiked[usersWhoLiked.length - 1]
+    // functions.logger.log(lastLikeUser)
+    // const lastUserSnap = await admin.firestore().collection(`users/${school}/profiles`).doc(lastLikeUser).get()
+    // const lastUserName = lastUserSnap.data().name
+    const tokenSnap = await admin.firestore().collection(`notifications/${school}/fcmTokens`).doc(uid).get()
+    const token = tokenSnap.data().fcmToken
+    const response = await admin.messaging().send({
+      token: token,
+      notification: {
+        title: "new like!",
+        body: `someone just liked your post!`
+      },
+    })
+    functions.logger.log("successfully sent notification");
+  }
+
+  // if(afterSnapshot.numLikes >= 10) {
+  //   const tokensQuery = await admin.firestore().collection(`notifications/${school}/fcmTokens`).get()
+  //   const tokens = tokensQuery.docs.map(doc => doc.data().fcmToken)
+  //   functions.logger.log(tokens)
+    
+  //   tokens.map(token => (
+  //     response = await admin.messaging().send({
+  //       token: token,
+  //       notification: {
+  //         title: "new friend request!",
+  //         body: `${name} just sent you a friend request!`
+  //       },
+  //     })
+  //   ))
+  // };
+  
+});
+
+const commentsPath = "users/{school}/posts/{postID}/comments/{commentID}";
+
+exports.commentNotifications = onDocumentCreated(commentsPath, async (event) => {
+  functions.logger.log("comment document was created");
 
   const snapshot = event.data;
   if (!snapshot) {
       console.log("No data associated with the event");
       return;
   }
-  const data = snapshot.data();
-  const name = data.name;
-  const token = "eHZXlCDbSkFSo9NtzSmGlY:APA91bGFIm-u2YX7SHHiaUVpXVZhokP0swKC_ATVmbdq8TTRvimxO7nuejGabOOXiE03pD1T7jh71N6VnvmNOu57VW1pl7sI7ZBOTHAVJSuBzKoBafK0Vgoy553gFxKQ_94mRO-aGNsD"
+  const comment = snapshot.data()
+  const postID = event.params.postID
+  const school = event.params.school
+  const post = await admin.firestore().collection(`users/${school}/posts`).doc(postID).get()
+  const posterID = post.data().posterId 
+    // functions.logger.log(usersWhoLiked) 
+    // const lastLikeUser = usersWhoLiked[usersWhoLiked.length - 1]
+    // functions.logger.log(lastLikeUser)
+    // const lastUserSnap = await admin.firestore().collection(`users/${school}/profiles`).doc(lastLikeUser).get()
+    // const lastUserName = lastUserSnap.data().name
+    const commenterID = comment.posterId
+    const commentText = comment.comment
+    const commentSnap = await admin.firestore().collection(`users/${school}/profiles`).doc(commenterID).get() 
+    const commenter = commentSnap.data()
+    const name = commenter.name
+    const tokenSnap = await admin.firestore().collection(`notifications/${school}/fcmTokens`).doc(posterID).get()
+    const token = tokenSnap.data().fcmToken
+    const response = await admin.messaging().send({
+      token: token,
+      notification: {
+        title: "new comment!",
+        body: `${name} just commented on your post: "${commentText}"`
+      },
+    })
+    functions.logger.log("successfully sent notification");
 
-  const response = await admin.messaging().send({
-    token: token,
-    notification: {
-      title: "New Post!",
-      body: `${name} just posted!`
-    },
-  })
-
-  functions.logger.log("successfully sent notification");
-
+  
 });
