@@ -27,6 +27,20 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "posts", 
+      "queryScope": "COLLECTION", 
+      "fields": [
+        {
+          "fieldPath": "posterId", 
+          "order": "ASCENDING"
+        }, 
+        {
+          "fieldPath": "date", 
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
