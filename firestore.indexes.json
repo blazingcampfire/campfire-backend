@@ -29,15 +29,15 @@
       ]
     },
     {
-      "collectionGroup": "posts", 
-      "queryScope": "COLLECTION", 
+      "collectionGroup": "posts",
+      "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "posterId", 
+          "fieldPath": "posterId",
           "order": "ASCENDING"
-        }, 
+        },
         {
-          "fieldPath": "date", 
+          "fieldPath": "date",
           "order": "DESCENDING"
         }
       ]
