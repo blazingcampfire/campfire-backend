@@ -68,7 +68,8 @@ exports.deleteOldPosts = functions.pubsub
 const relationshipsPath =
   "relationships/{school}/relationships/{relationshipID}";
 
-  
+
+// Triggers when a document in the `relationships/{school}/relationships/{relationshipID}` path is updated. It checks for new friend requests and new friends added to a user's relationship document. If a new friend request is detected, it sends a notification to the user with the title "new friend request!" and a message including the name of the requester. Similarly, if a new friend is added, it sends a notification with the title "new friend!" and a message confirming the new friendship.
 exports.friendRequestNotifications = onDocumentUpdated(
   relationshipsPath,
   async (event) => {
@@ -128,6 +129,8 @@ exports.friendRequestNotifications = onDocumentUpdated(
 
 const postsPath = "users/{school}/posts/{postID}";
 
+
+// Activates when a document in the `users/{school}/posts/{postID}` path is updated. It monitors changes in the number of likes on a post. If a post reaches or exceeds 10 likes, a mass notification is sent to all users with the title indicating the post is getting popular. Additionally, if there's a new like by a different user, it sends a notification to the post owner with the title "new like!" and the liker's name.
 exports.postNotifications = onDocumentUpdated(postsPath, async (event) => {
   functions.logger.log("post document was updated");
   const postID = event.params.postID;
@@ -210,6 +213,8 @@ exports.postNotifications = onDocumentUpdated(postsPath, async (event) => {
   functions.logger.log("successfully sent notification");
 });
 
+
+// Fires when a new document is created in the `users/{school}/posts/{postID}` path. It notifies all friends of the user who made the post with a message titled "your friend [posterName] just posted!" encouraging them to check the new post.
 exports.friendPostNotification = onDocumentCreated(postsPath, async (event) => {
   functions.logger.log("post document was created");
 
@@ -270,6 +275,8 @@ exports.friendPostNotification = onDocumentCreated(postsPath, async (event) => {
 });
 const commentsPath = "users/{school}/posts/{postID}/comments/{commentID}";
 
+
+// Triggered upon the creation of a new document in the `users/{school}/posts/{postID}/comments/{commentID}` path. It sends a notification to the post owner when a new comment is made on their post, excluding comments made by the post owner themselves. The notification includes the title "new comment!" and the comment text.
 exports.commentNotifications = onDocumentCreated(
   commentsPath,
   async (event) => {
@@ -321,6 +328,9 @@ exports.commentNotifications = onDocumentCreated(
 
 const repliesPath =
   "users/{school}/posts/{postID}/comments/{commentID}/replies/{replyID}";
+
+
+// Initiates when a new document is created in the `users/{school}/posts/{postID}/comments/{commentID}/replies/{replyID}` path. It sends a notification to the original commenter when someone else replies to their comment on a post. The notification contains the title "new reply!" and the reply text, but does not trigger if the reply is from the commenter themselves.
 exports.repliesNotifications = onDocumentCreated(repliesPath, async (event) => {
   functions.logger.log("reply document was created");
 
